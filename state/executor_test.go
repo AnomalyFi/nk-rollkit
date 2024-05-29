@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -20,6 +21,10 @@ import (
 	"github.com/cometbft/cometbft/proxy"
 	cmtypes "github.com/cometbft/cometbft/types"
 
+	conf "github.com/AnomalyFi/nodekit-relay/config"
+	relay "github.com/AnomalyFi/nodekit-relay/rpc"
+
+	// "github.com/rollkit/rollkit/config"
 	"github.com/rollkit/rollkit/mempool"
 	"github.com/rollkit/rollkit/test/mocks"
 	"github.com/rollkit/rollkit/types"
@@ -320,4 +325,92 @@ func TestUpdateStateConsensusParams(t *testing.T) {
 	assert.Equal(t, int64(200), updatedState.ConsensusParams.Block.MaxBytes)
 	assert.Equal(t, int64(200000), updatedState.ConsensusParams.Block.MaxGas)
 	assert.Equal(t, uint64(2), updatedState.ConsensusParams.Version.App)
+}
+
+func TestNodeKit(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	
+	logger := log.TestingLogger()
+	
+	app := &mocks.Application{}
+	app.On("CheckTx", mock.Anything, mock.Anything).Return(&abci.ResponseCheckTx{}, nil)
+	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(prepareProposalResponse)
+	app.On("ProcessProposal", mock.Anything, mock.Anything).Return(&abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}, nil)
+	fmt.Println("App On CheckTx")
+	client, err := proxy.NewLocalClientCreator(app).NewABCIClient()
+	fmt.Println("Created New Local Client")
+	require.NoError(err)
+	require.NotNil(client)
+	
+	fmt.Println("Made NID")
+	mpool := mempool.NewCListMempool(cfg.DefaultMempoolConfig(), proxy.NewAppConnMempool(client, proxy.NopMetrics()), 0)
+	fmt.Println("Made a NewTxMempool")
+	executor := NewBlockExecutor([]byte("test address"), "test", mpool, proxy.NewAppConnConsensus(client, proxy.NopMetrics()), nil, 100, logger, NopMetrics(), types.GetRandomBytes(32))
+	fmt.Println("Made a New Block Executor")
+	
+	state := types.State{}
+	
+	state.ConsensusParams.Block = &cmproto.BlockParams{}
+	state.ConsensusParams.Block.MaxBytes = 100
+	state.ConsensusParams.Block.MaxGas = 100000
+
+	//SEQ test
+	chainID := "chain ID from SEQ"
+	uri := "uri from SEQ"
+	rollup := []byte("2nd chain ID from SEQ")
+	seq := NewClient(uri, chainID)
+
+	//after client is made, submit txs
+	mpoolTxs := []types.Tx{
+		[]byte{1, 2, 3, 4},
+		[]byte{5, 6, 7, 8},
+		[]byte{9, 10, 11, 12},
+		[]byte{13, 14, 15, 16},
+		[]byte{17, 18, 19, 20},
+		[]byte{21, 22, 23, 24},
+	}
+	for _,tx := range mpoolTxs {
+		seq.client.SubmitTx(context.Background(), chainID, 1337, rollup, tx)
+	}
+	// Get the transactions from the sequencer
+	// pass it from byte to string form in
+	hexNamespace := hex.EncodeToString(rollup)
+	// IMPORTANT: first submit txs, then get height from submitted block on SEQ and input it below.
+	blockHeight := uint64(1) 
+	// IMPORTANT: make sure values in this file with SEQ are the same and match the values in executer.go to test the code. 
+	// gets transactions from submitted block height
+	blockTxs, err := seq.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
+	require.NoError(err)
+	fmt.Printf("blockTxs: %v\n", blockTxs)
+	// Convert the transactions to the rollkit type
+	rollkitTxs := fromSEQTransactions(blockTxs.Txs)
+	fmt.Printf("rollkitTxs: %v\n", rollkitTxs)
+	// Check that the transactions in the block match the transactions from the sequencer
+	block, err := executor.CreateBlock(1, &types.Commit{}, abci.ExtendedCommitInfo{}, []byte{}, state)
+	require.NoError(err)
+	require.NotNil(block)
+	assert.Empty(t, block.Data.Txs)
+	assert.Equal(t, uint64(1), block.Height())
+	fmt.Printf("block: %v\n", block)
+	fmt.Printf("block height: %v\n", block.Height())
+	fmt.Printf("block TXS: %v\n", block.Data.Txs)
+	
+	//setup relayer
+	file := conf.SeqJsonRPCConfig {
+		URI: uri,
+		NetworkID: 1337,
+		ChainID: chainID,
+	}
+
+	cli, err := relay.NewJSONRPCClient(uri, file)
+
+	daBlock, err := cli.GetSeqBlock(context.TODO(), blockHeight)
+	fmt.Printf("da seq block: %v\n", daBlock)
+	stable, err := cli.GetStableSeqHeight(context.TODO())
+	fmt.Printf("da stable seq block: %v\n", stable)
+	name, res, err := cli.GetNamespacedSeqBlock(context.TODO(), rollup, blockHeight)
+	fmt.Printf("da ns seq block: %v\n", name)
+	fmt.Printf("da ns seq block res: %v\n", res)
+	
 }

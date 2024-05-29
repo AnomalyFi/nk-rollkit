@@ -997,6 +997,7 @@ func (m *Manager) recordMetrics(block *types.Block) {
 	m.metrics.CommittedHeight.Set(float64(block.Height()))
 }
 
+// use relayer here or alter if needed
 func (m *Manager) submitBlocksToDA(ctx context.Context) error {
 	submittedAllBlocks := false
 	var backoff time.Duration

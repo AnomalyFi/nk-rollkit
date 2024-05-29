@@ -3,8 +3,10 @@ package state
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -17,6 +19,9 @@ import (
 	"github.com/rollkit/rollkit/third_party/log"
 	"github.com/rollkit/rollkit/types"
 	abciconv "github.com/rollkit/rollkit/types/abci"
+
+	trpc "github.com/AnomalyFi/seq-sdk/client"
+	info "github.com/AnomalyFi/seq-sdk/types"
 )
 
 // ErrEmptyValSetGenerated is returned when applying the validator changes would result in empty set.
@@ -24,6 +29,24 @@ var ErrEmptyValSetGenerated = errors.New("applying the validator changes would r
 
 // ErrAddingValidatorToBased is returned when trying to add a validator to an empty validator set.
 var ErrAddingValidatorToBased = errors.New("cannot add validators to empty validator set")
+
+//NodeKit Client 
+type Client struct {
+	client *trpc.JSONRPCClient
+	//add log from import
+}
+
+func NewClient(url string, id string) *Client {
+	if !strings.HasSuffix(url, "/") {
+		url += "/"
+	}
+
+	cli := trpc.NewJSONRPCClient(url, 1337, id)
+
+	return &Client{
+		client: cli,
+	}
+}
 
 // BlockExecutor creates and applies blocks and maintains state.
 type BlockExecutor struct {
@@ -107,6 +130,41 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 
 	mempoolTxs := e.mempool.ReapMaxBytesMaxGas(maxBytes, maxGas)
 
+	// TODO: need to find a efficient method to essentially take mempool txs and submit them to SEQ
+    // Golang SDK does have a submit tx method.
+    // 1.) Create JSONRPCClient for Golang SDK
+	chainID := "chainID from SEQ"
+	uri := "uri from SEQ"
+	client := NewClient(uri, chainID)
+	// 2.) Call submit tx(client.SubmitTx(params)
+	rollupNamespace := []byte("2nd chain ID from SEQ")
+	// IMPORTANT: When testing, comment out the loop below,
+	// otherwise it'll submit an additional tx because of the call below and the call in executor_test.go #L83
+	// obviously when in production, it'll go through mempoolTxs(which will be populated by methods in mempool.go in mempool),
+	// and work as intended.
+	for _,tx := range mempoolTxs {
+		_,err := client.client.SubmitTx(context.Background(), chainID, 1337, rollupNamespace, tx)
+		if err != nil {
+			fmt.Printf("Error submitting txs: %v\n", err)
+		}
+	}
+    // 3.) Params are chainID(string), Network ID uint32, second chainID(rollup namespace) []byte, and Data []byte
+    // 4.) After submitting txs, it'll return the tx id.
+    // 5.) Call GetBlockTransactionsByNamespace(height(uint64), namespace(string))
+	hexNamespace := hex.EncodeToString(rollupNamespace)
+	//height from submitted block on SEQ
+	blockHeight := uint64(1)
+	seqTxs, err := client.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
+	if err != nil {
+		fmt.Printf("Error getting txs: %v\n", err)
+	}
+    // 6.) The step before returns the Txs(SEQTransaction type) and Block ID. 
+    // 7.) Create a function, like toRollkitTxs, but to turn the type of Tx back into compatible form.
+	// Here we are going from SEQ Txs type to rollkit tx type
+	rollkitTxs := fromSEQTransactions(seqTxs.Txs)
+    // 8.) NodeKit Relayer will then take this block and submit to the DA layer(celestia) (block manager readme).
+    // 9.) NodeKit Relayer will also retrieve the block from Celestia (block manager readme).
+
 	block := &types.Block{
 		SignedHeader: types.SignedHeader{
 			Header: types.Header{
@@ -130,7 +188,7 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 			Commit: *lastCommit,
 		},
 		Data: types.Data{
-			Txs: toRollkitTxs(mempoolTxs),
+			Txs: rollkitTxs,
 			// IntermediateStateRoots: types.IntermediateStateRoots{RawRootsList: nil},
 			// Note: Temporarily remove Evidence #896
 			// Evidence:               types.EvidenceData{Evidence: nil},
@@ -141,7 +199,7 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 		context.TODO(),
 		&abci.RequestPrepareProposal{
 			MaxTxBytes:         maxBytes,
-			Txs:                mempoolTxs.ToSliceOfBytes(),
+			Txs:                seqTxsToBytes(seqTxs.Txs),
 			LocalLastCommit:    lastExtendedCommit,
 			Misbehavior:        []abci.Misbehavior{},
 			Height:             int64(block.Height()),
@@ -502,6 +560,24 @@ func fromRollkitTxs(rollkitTxs types.Txs) cmtypes.Txs {
 	txs := make(cmtypes.Txs, len(rollkitTxs))
 	for i := range rollkitTxs {
 		txs[i] = []byte(rollkitTxs[i])
+	}
+	return txs
+}
+
+// Convert SEQTransactionResponse.Txs to a slice of byte slices
+func seqTxsToBytes(seqTxs []*info.SEQTransaction) [][]byte {
+	var txBytes [][]byte
+	for _, tx := range seqTxs {
+		txBytes = append(txBytes, tx.Transaction)
+	}
+	return txBytes
+}
+
+// from SEQ txs to rollkit txs
+func fromSEQTransactions(seqTxs []*info.SEQTransaction) types.Txs {
+	txs := make(types.Txs, len(seqTxs))
+	for i, seqTx := range seqTxs {
+		txs[i] = seqTx.Transaction
 	}
 	return txs
 }
