@@ -133,11 +133,11 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 	// TODO: need to find a efficient method to essentially take mempool txs and submit them to SEQ
     // Golang SDK does have a submit tx method.
     // 1.) Create JSONRPCClient for Golang SDK
-	chainID := "chainID from SEQ"
-	uri := "uri from SEQ"
+	chainID := "2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
+	uri := "http://54.196.69.231:9650/ext/bc/2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
 	client := NewClient(uri, chainID)
 	// 2.) Call submit tx(client.SubmitTx(params)
-	rollupNamespace := []byte("2nd chain ID from SEQ")
+	rollupNamespace := []byte("3nAGfq34WrEsZEx18jbh4pfhmpFvNDhQPWasFn72zPTDYbRWH")
 	// IMPORTANT: When testing, comment out the loop below,
 	// otherwise it'll submit an additional tx because of the call below and the call in executor_test.go #L83
 	// obviously when in production, it'll go through mempoolTxs(which will be populated by methods in mempool.go in mempool),
@@ -153,7 +153,7 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
     // 5.) Call GetBlockTransactionsByNamespace(height(uint64), namespace(string))
 	hexNamespace := hex.EncodeToString(rollupNamespace)
 	//height from submitted block on SEQ
-	blockHeight := uint64(1)
+	blockHeight := uint64(81)
 	seqTxs, err := client.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
 	if err != nil {
 		fmt.Printf("Error getting txs: %v\n", err)

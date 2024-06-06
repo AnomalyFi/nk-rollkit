@@ -1,0 +1,6 @@
+[submodule "nodekit-relay"]
+	path = nodekit-relay
+	url = https://github.com/AnomalyFi/nodekit-relay
+[submodule "opstack-deployment"]
+	path = opstack-deployment
+	url = https://github.com/AnomalyFi/opstack-deployment

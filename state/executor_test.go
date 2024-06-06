@@ -356,9 +356,9 @@ func TestNodeKit(t *testing.T) {
 	state.ConsensusParams.Block.MaxGas = 100000
 
 	//SEQ test
-	chainID := "chain ID from SEQ"
-	uri := "uri from SEQ"
-	rollup := []byte("2nd chain ID from SEQ")
+	chainID := "2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
+	uri := "http://54.196.69.231:9650/ext/bc/2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
+	rollup := []byte("3nAGfq34WrEsZEx18jbh4pfhmpFvNDhQPWasFn72zPTDYbRWH")
 	seq := NewClient(uri, chainID)
 
 	//after client is made, submit txs
@@ -377,7 +377,7 @@ func TestNodeKit(t *testing.T) {
 	// pass it from byte to string form in
 	hexNamespace := hex.EncodeToString(rollup)
 	// IMPORTANT: first submit txs, then get height from submitted block on SEQ and input it below.
-	blockHeight := uint64(1) 
+	blockHeight := uint64(81) 
 	// IMPORTANT: make sure values in this file with SEQ are the same and match the values in executer.go to test the code. 
 	// gets transactions from submitted block height
 	blockTxs, err := seq.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
