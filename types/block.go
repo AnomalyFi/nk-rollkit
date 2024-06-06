@@ -21,6 +21,7 @@ type Version struct {
 }
 
 // Block defines the structure of Rollkit block.
+// tbd: noting for conversion(possibly not needed for DA submission w/SEQ Blocks)
 type Block struct {
 	SignedHeader SignedHeader
 	Data         Data

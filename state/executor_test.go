@@ -356,9 +356,9 @@ func TestNodeKit(t *testing.T) {
 	state.ConsensusParams.Block.MaxGas = 100000
 
 	//SEQ test
-	chainID := "2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
-	uri := "http://54.196.69.231:9650/ext/bc/2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
-	rollup := []byte("3nAGfq34WrEsZEx18jbh4pfhmpFvNDhQPWasFn72zPTDYbRWH")
+	chainID := "seq chain id"
+	uri := "seq uri"
+	rollup := []byte("seq second chain id")
 	seq := NewClient(uri, chainID)
 
 	//after client is made, submit txs
