@@ -4,3 +4,6 @@
 [submodule "opstack-deployment"]
 	path = opstack-deployment
 	url = https://github.com/AnomalyFi/opstack-deployment
+[submodule "nodekit-seq"]
+	path = nodekit-seq
+	url = https://github.com/AnomalyFi/nodekit-seq

@@ -21,8 +21,8 @@ import (
 	"github.com/cometbft/cometbft/proxy"
 	cmtypes "github.com/cometbft/cometbft/types"
 
-	conf "github.com/AnomalyFi/nodekit-relay/config"
-	relay "github.com/AnomalyFi/nodekit-relay/rpc"
+	// conf "github.com/AnomalyFi/nodekit-relay/config"
+	// relay "github.com/AnomalyFi/nodekit-relay/rpc"
 
 	// "github.com/rollkit/rollkit/config"
 	"github.com/rollkit/rollkit/mempool"
@@ -356,9 +356,9 @@ func TestNodeKit(t *testing.T) {
 	state.ConsensusParams.Block.MaxGas = 100000
 
 	//SEQ test
-	chainID := "2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
-	uri := "http://54.196.69.231:9650/ext/bc/2gDVAfXamfefdaVJZHefAeiqenCFzY2C6uMsRLjAFHgQQGAdkw"
-	rollup := []byte("3nAGfq34WrEsZEx18jbh4pfhmpFvNDhQPWasFn72zPTDYbRWH")
+	chainID := "opstack deployment seq-info func chain id"
+	uri := "opstack deployment seq-info func chain uri"
+	rollup := []byte("seq chain import/watch 2nd chain id func uri")
 	seq := NewClient(uri, chainID)
 
 	//after client is made, submit txs
@@ -377,7 +377,7 @@ func TestNodeKit(t *testing.T) {
 	// pass it from byte to string form in
 	hexNamespace := hex.EncodeToString(rollup)
 	// IMPORTANT: first submit txs, then get height from submitted block on SEQ and input it below.
-	blockHeight := uint64(81) 
+	blockHeight := uint64(2065) 
 	// IMPORTANT: make sure values in this file with SEQ are the same and match the values in executer.go to test the code. 
 	// gets transactions from submitted block height
 	blockTxs, err := seq.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
@@ -396,21 +396,21 @@ func TestNodeKit(t *testing.T) {
 	fmt.Printf("block height: %v\n", block.Height())
 	fmt.Printf("block TXS: %v\n", block.Data.Txs)
 	
-	//setup relayer
-	file := conf.SeqJsonRPCConfig {
-		URI: uri,
-		NetworkID: 1337,
-		ChainID: chainID,
-	}
+	// //setup relayer
+	// file := conf.SeqJsonRPCConfig {
+	// 	URI: uri,
+	// 	NetworkID: 1337,
+	// 	ChainID: chainID,
+	// }
 
-	cli, err := relay.NewJSONRPCClient(uri, file)
+	// cli, err := relay.NewJSONRPCClient(uri, file)
 
-	daBlock, err := cli.GetSeqBlock(context.TODO(), blockHeight)
-	fmt.Printf("da seq block: %v\n", daBlock)
-	stable, err := cli.GetStableSeqHeight(context.TODO())
-	fmt.Printf("da stable seq block: %v\n", stable)
-	name, res, err := cli.GetNamespacedSeqBlock(context.TODO(), rollup, blockHeight)
-	fmt.Printf("da ns seq block: %v\n", name)
-	fmt.Printf("da ns seq block res: %v\n", res)
+	// daBlock, err := cli.GetSeqBlock(context.TODO(), blockHeight)
+	// fmt.Printf("da seq block: %v\n", daBlock)
+	// stable, err := cli.GetStableSeqHeight(context.TODO())
+	// fmt.Printf("da stable seq block: %v\n", stable)
+	// name, res, err := cli.GetNamespacedSeqBlock(context.TODO(), rollup, blockHeight)
+	// fmt.Printf("da ns seq block: %v\n", name)
+	// fmt.Printf("da ns seq block res: %v\n", res)
 	
 }
