@@ -135,11 +135,19 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 	// TODO: need to find a efficient method to essentially take mempool txs and submit them to SEQ
     // Golang SDK does have a submit tx method.
     // 1.) Create JSONRPCClient for Golang SDK
+<<<<<<< HEAD
 	chainID := "opstack deployment seq-info func chain id"
 	uri := "opstack deployment seq-info func uri"
 	client := NewClient(uri, chainID)
 	// 2.) Call submit tx(client.SubmitTx(params)
 	rollupNamespace := []byte("seq chain import/watch 2nd chain id func uri")
+=======
+	chainID := "opstack deployment seq-info func chain id"
+	uri := "opstack deployment seq-info func uri"
+	client := NewClient(uri, chainID)
+	// 2.) Call submit tx(client.SubmitTx(params)
+	rollupNamespace := []byte("seq chain import/watch 2nd chain id func uri")
+>>>>>>> refs/remotes/origin/main
 	// IMPORTANT: When testing, comment out the loop below,
 	// otherwise it'll submit an additional tx because of the call below and the call in executor_test.go #L83
 	// obviously when in production, it'll go through mempoolTxs(which will be populated by methods in mempool.go in mempool),

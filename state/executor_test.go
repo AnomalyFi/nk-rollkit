@@ -356,9 +356,15 @@ func TestNodeKit(t *testing.T) {
 	state.ConsensusParams.Block.MaxGas = 100000
 
 	//SEQ test
+<<<<<<< HEAD
 	chainID := "opstack deployment seq-info func chain id"
 	uri := "opstack deployment seq-info func chain uri"
 	rollup := []byte("seq chain import/watch 2nd chain id func uri")
+=======
+	chainID := "opstack deployment seq-info func chain id"
+	uri := "opstack deployment seq-info func uri"
+	rollup := []byte("seq chain import/watch 2nd chain id func uri")
+>>>>>>> refs/remotes/origin/main
 	seq := NewClient(uri, chainID)
 
 	//after client is made, submit txs
