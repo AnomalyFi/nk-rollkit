@@ -1015,6 +1015,11 @@ func (m *Manager) submitBlocksToDA(ctx context.Context) error {
 		// The error is logged and normal processing of pending blocks continues.
 		m.logger.Error("error while fetching blocks pending DA", "err", err)
 	}
+	// Since we submit txs in Executor to the DA Layer, 
+	// we can set txs to nil since we don't want to submit txs to the DA layer twice
+	for _, block := range blocksToSubmit {
+		block.Data.Txs = nil
+	}
 	numSubmittedBlocks := 0
 	attempt := 0
 	maxBlobSize, err := m.dalc.DA.MaxBlobSize(ctx)
