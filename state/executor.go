@@ -3,6 +3,7 @@ package state
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -20,10 +21,10 @@ import (
 	"github.com/rollkit/rollkit/types"
 	abciconv "github.com/rollkit/rollkit/types/abci"
 
-	trpc "github.com/AnomalyFi/seq-sdk/client"
-	info "github.com/AnomalyFi/seq-sdk/types"
 	conf "github.com/AnomalyFi/nodekit-relay/config"
 	relay "github.com/AnomalyFi/nodekit-relay/rpc"
+	trpc "github.com/AnomalyFi/seq-sdk/client"
+	info "github.com/AnomalyFi/seq-sdk/types"
 )
 
 // ErrEmptyValSetGenerated is returned when applying the validator changes would result in empty set.
@@ -32,7 +33,14 @@ var ErrEmptyValSetGenerated = errors.New("applying the validator changes would r
 // ErrAddingValidatorToBased is returned when trying to add a validator to an empty validator set.
 var ErrAddingValidatorToBased = errors.New("cannot add validators to empty validator set")
 
-//NodeKit Client 
+// NodeKit Vars
+var chainID = "opstack deployment seq chain id"
+var uri = "opstack deployment seq uri"
+// var rollup = []byte("opstack deployment seq rollup chain id")
+var rollupChainID = uint64(45200)
+var rollupNamespace = make([]byte, 8)
+
+// NodeKit Client 
 type Client struct {
 	client *trpc.JSONRPCClient
 	//add log from import
@@ -127,53 +135,30 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 		e.logger.Debug("limiting maxBytes to", "e.maxBytes=%d", e.maxBytes)
 		maxBytes = int64(e.maxBytes)
 	}
-
 	maxGas := state.ConsensusParams.Block.MaxGas
-
 	mempoolTxs := e.mempool.ReapMaxBytesMaxGas(maxBytes, maxGas)
 
-	// TODO: need to find a efficient method to essentially take mempool txs and submit them to SEQ
-    // Golang SDK does have a submit tx method.
-    // 1.) Create JSONRPCClient for Golang SDK
-<<<<<<< HEAD
-	chainID := "opstack deployment seq-info func chain id"
-	uri := "opstack deployment seq-info func uri"
 	client := NewClient(uri, chainID)
-	// 2.) Call submit tx(client.SubmitTx(params)
-	rollupNamespace := []byte("seq chain import/watch 2nd chain id func uri")
-=======
-	chainID := "opstack deployment seq-info func chain id"
-	uri := "opstack deployment seq-info func uri"
-	client := NewClient(uri, chainID)
-	// 2.) Call submit tx(client.SubmitTx(params)
-	rollupNamespace := []byte("seq chain import/watch 2nd chain id func uri")
->>>>>>> refs/remotes/origin/main
-	// IMPORTANT: When testing, comment out the loop below,
-	// otherwise it'll submit an additional tx because of the call below and the call in executor_test.go #L83
-	// obviously when in production, it'll go through mempoolTxs(which will be populated by methods in mempool.go in mempool),
-	// and work as intended.
+	binary.LittleEndian.PutUint64(rollupNamespace, rollupChainID)
+
+	// loop through mempoolTxs and submit txs to SEQ
 	for _,tx := range mempoolTxs {
 		_,err := client.client.SubmitTx(context.Background(), chainID, 1337, rollupNamespace, tx)
 		if err != nil {
 			fmt.Printf("Error submitting txs: %v\n", err)
 		}
 	}
-    // 3.) Params are chainID(string), Network ID uint32, second chainID(rollup namespace) []byte, and Data []byte
-    // 4.) After submitting txs, it'll return the tx id.
-    // 5.) Call GetBlockTransactionsByNamespace(height(uint64), namespace(string))
 	hexNamespace := hex.EncodeToString(rollupNamespace)
-	//height from submitted block on SEQ
-	blockHeight := uint64(2065)
+	// height from submitted block on SEQ
+	blockHeight := uint64(0)
+	// use height above and encoded rollup string to get tx(s) by namespace
 	seqTxs, err := client.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
 	if err != nil {
 		fmt.Printf("Error getting txs: %v\n", err)
 	}
-    // 6.) The step before returns the Txs(SEQTransaction type) and Block ID. 
-    // 7.) Create a function, like toRollkitTxs, but to turn the type of Tx back into compatible form.
-	// Here we are going from SEQ Txs type to rollkit tx type
+    // converts tx(s) from SEQ to rollkit txs
 	rollkitTxs := fromSEQTransactions(seqTxs.Txs)
-    // 8.) NodeKit Relayer will then take this block and submit to the DA layer(celestia) (block manager readme).
-    // 9.) NodeKit Relayer will also retrieve the block from Celestia (block manager readme).
+    // calls nodekit relayer to submit and retrieve seq blocks to and from DA layer
 	e.RelayToDA(context.TODO())
 	block := &types.Block{
 		SignedHeader: types.SignedHeader{
@@ -198,6 +183,7 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 			Commit: *lastCommit,
 		},
 		Data: types.Data{
+			// txs below are those that were submitted to SEQ
 			Txs: rollkitTxs,
 			// IntermediateStateRoots: types.IntermediateStateRoots{RawRootsList: nil},
 			// Note: Temporarily remove Evidence #896
@@ -244,33 +230,34 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 
 func (e *BlockExecutor) RelayToDA(ctx context.Context) error {
 	//setup relayer
-	chainID := "opstack deployment seq-info func chain id"
-	uri := "opstack deployment seq-info func uri"
+	RPC := "127.0.0.1:12510"
+	relay_uri := "http://"+RPC
 	file := conf.SeqJsonRPCConfig {
 		URI: uri,
 		NetworkID: 1337,
 		ChainID: chainID,
 	}
 
-	cli, err := relay.NewJSONRPCClient(uri, file)
-	blockHeight := uint64(2065)
-	rollup := []byte("seq chain import/watch 2nd chain id func uri")
-	daBlock, err := cli.GetSeqBlock(context.TODO(), blockHeight)
+	cli, err := relay.NewJSONRPCClient(relay_uri, file)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("da seq block: %v\n", daBlock)
-	stable, err := cli.GetStableSeqHeight(context.TODO())
+	blockHeight := uint64(0)
+	daBlock, err := cli.GetSeqBlock(context.Background(), blockHeight)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("da stable seq block: %v\n", stable)
-	name, res, err := cli.GetNamespacedSeqBlock(context.TODO(), rollup, blockHeight)
+	fmt.Printf("relayer seq block: %v\n", daBlock)
+	stable, err := cli.GetStableSeqHeight(context.Background())
 	if err != nil {
 		return err
 	}
-	fmt.Printf("da ns seq block: %v\n", name)
-	fmt.Printf("da ns seq block res: %v\n", res)
+	fmt.Printf("relayer stable seq block: %v\n", stable)
+	name, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("opstack deployment pprimary chain id"), blockHeight)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("relayer namespace: %v\n", name)
 
 	return nil
 }
