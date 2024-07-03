@@ -359,10 +359,10 @@ func TestNodeKit(t *testing.T) {
 	//SEQ test
 	chainID := "opstack deployment seq chain id"
 	uri := "opstack deployment seq uri"
-	// rollup := []byte("opstack deployment seq rollup chain id")
 	rollupChainID := uint64(45200)
 	rollupNamespace := make([]byte, 8)
 	binary.LittleEndian.PutUint64(rollupNamespace, rollupChainID)
+
 	seq := NewClient(uri, chainID)
 
 	// create mpool of tx(s)
@@ -385,7 +385,7 @@ func TestNodeKit(t *testing.T) {
 	// gets transactions from submitted SEQ block height
 	blockTxs, err := seq.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
 	require.NoError(err)
-	fmt.Printf("blockTxs: %v\n", blockTxs)
+	fmt.Printf("blockTxs test: %v\n", blockTxs)
 	// Convert the transactions to the rollkit type(does this in executor.go but here it is printed to make sure it correctly displays tx format needed)
 	rollkitTxs := fromSEQTransactions(blockTxs.Txs)
 	fmt.Printf("rollkitTxs: %v\n", rollkitTxs)
@@ -401,7 +401,7 @@ func TestNodeKit(t *testing.T) {
 	fmt.Printf("block height: %v\n", block.Height())
 	fmt.Printf("block TXS: %v\n", block.Data.Txs)
 	
-	//debugging relayer funcs
+	// debugging relayer funcs
 	// relay_uri := "http://127.0.0.1:12510"
 
 	// file := conf.SeqJsonRPCConfig {
@@ -419,7 +419,7 @@ func TestNodeKit(t *testing.T) {
 	// stable, err := cli.GetStableSeqHeight(context.Background())
 	// require.NoError(err)
 	// fmt.Printf("da test stable seq block: %v\n", stable)
-	// ns, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("2NHXrUj1EMbxvqrTZiHc3xbynixx7VPewXPpXWGoBvAgtzsMWZ"), blockHeight)
+	// ns, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("opstack deployment seq chain id "), blockHeight)
 	// require.NoError(err)
 	// fmt.Printf("da test ns : %v\n", ns)	
 }

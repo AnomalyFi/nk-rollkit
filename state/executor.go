@@ -36,7 +36,6 @@ var ErrAddingValidatorToBased = errors.New("cannot add validators to empty valid
 // NodeKit Vars
 var chainID = "opstack deployment seq chain id"
 var uri = "opstack deployment seq uri"
-// var rollup = []byte("opstack deployment seq rollup chain id")
 var rollupChainID = uint64(45200)
 var rollupNamespace = make([]byte, 8)
 
@@ -242,22 +241,25 @@ func (e *BlockExecutor) RelayToDA(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	stable, err := cli.GetStableSeqHeight(context.Background())
+	if err != nil {
+		return err
+	}
+	e.logger.Info("Returning Stable Seq Height ", "height", stable)
+
 	blockHeight := uint64(0)
 	daBlock, err := cli.GetSeqBlock(context.Background(), blockHeight)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("relayer seq block: %v\n", daBlock)
-	stable, err := cli.GetStableSeqHeight(context.Background())
-	if err != nil {
-		return err
-	}
-	fmt.Printf("relayer stable seq block: %v\n", stable)
+	e.logger.Info("Returning DA SEQ Block", "PoB", daBlock)
+
 	name, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("opstack deployment pprimary chain id"), blockHeight)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("relayer namespace: %v\n", name)
+	e.logger.Info("Returning DA SEQ Namespaced Block", "PoB", name)
+
 
 	return nil
 }
