@@ -1003,15 +1003,6 @@ func (m *Manager) recordMetrics(block *types.Block) {
 func (m *Manager) submitBlocksToDA(ctx context.Context) error {
 	submittedAllBlocks := false
 	var backoff time.Duration
-
-	// todo: figure out logic to simplify and fix this function to be used by nodekit relayer
-	// we get list of blocks ordered by height n those same blocks include seq txs, 
-	// so we can submit by block height calling blocksToSubmit[i].Hght as an example 
-	// i believe since rollkit block will contain submitted seq txs, 
-	// there needs to be a way where rollkit block height corresponds submitted txs height on seq and use that to submit to DA
-	// or simply call using namespace function which will return the txs and height
-	// name, res, err := cli.GetNamespacedSeqBlock(context.TODO(), rollup, blockHeight) as an example
-	// above is just an idea, subject to change.
 	 
 	// list below returns types.Block and by order of block height
 	blocksToSubmit, err := m.pendingBlocks.getPendingBlocks(ctx)
@@ -1031,7 +1022,13 @@ func (m *Manager) submitBlocksToDA(ctx context.Context) error {
 	// Since we submit txs in Executor to the DA Layer, 
 	// we can set txs to nil since we don't want to submit txs to the DA layer twice
 	for _, block := range blocksToSubmit {
+		fmt.Printf("ALERT: manager block da txs: %v\n", block.Data.Txs)
 		block.Data.Txs = nil
+		if block.Data.Txs != nil {
+			m.logger.Error("Txs field is not empty for Rollkit Block DA Submission", "blockHeight", block.Height())
+		}
+		fmt.Printf("ALERT: manager block da txs after if: %v\n", block.Data.Txs)
+
 	}
 	numSubmittedBlocks := 0
 	attempt := 0
