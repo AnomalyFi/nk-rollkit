@@ -36,7 +36,34 @@ The latest Rollkit is now installed. You can verify the installation by running:
 rollkit version
 ```
 
-#### Quick Start
+
+### TEST Before Quick Start Section
+
+note: nodekit-relay & opstack-deployment need to be running for nodekit demo to work!
+
+1.) Follow opstack-deployment README
+2.) After getting SEQ running in step 1, run 'python main.py --cloudprovider="aws" seq-info' in the opstack-deployment repo to get SEQ chainID and uri.
+3.) To monitor SEQ, cd into nodekit-seq and run './build/token-cli chain import'(enter info from step 2 here) and then do './build/token-cli chain watch' and click your chain.
+4.) Enter chainID and uri info in state/executor.go #L37-38 & state/executor_test.go #L360-361
+5.) Follow nodekit-relay, enter info in config.json(run rollkit local DA to keep it simple), and lastly run the relayer by doing `go run main.go ./config.json`
+
+note: run rollkit local DA: `curl -sSL https://rollkit.dev/install-local-da.sh | bash -s v0.2.0` in main dir 
+
+6.) Once all the info is set, run 'go test -v' in state repo. This will submit txs to SEQ which you can see by having done step 3
+7.) After you see the submitted txs in SEQ, take that block height and input it for state/executor.go #L152 & #L250 AND state/executor_test.go #L383
+8.) Do step 6 and all the information should be printed and work as expected.
+9.) After you see everything work as expected, go onto next section (Quick Start w/NodKit)!
+
+#### Notes(errors)
+
+- To fix rollkit: command not found despite installing rollkit by docs, do below:
+`export PATH="$HOME/go/bin:/rollkit:$PATH"`
+
+- `export CGO_CFLAGS="-O -D__BLST_PORTABLE__"` to fix Caught SIGILL in blst_cgo_init, consult <blst>/bindings/go/README.md.
+
+- 
+
+#### Quick Start w/NodeKit
 
 You can spin up a local rollkit network with the following command:
 
