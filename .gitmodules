@@ -15,7 +15,7 @@
 	url = https://github.com/noble-assets/noble
 [submodule "centralized-sequencer"]
 	path = centralized-sequencer
-	url = https://github.com/rollkit/centralized-sequencer 
-[submodule "go-sequencer"]
-	path = go-sequencer
+	url = https://github.com/AnomalyFi/centralized-sequencer
+[submodule "go-sequencing"]
+	path = go-sequencing
 	url = https://github.com/AnomalyFi/go-sequencing 
