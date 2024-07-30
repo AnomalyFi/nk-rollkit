@@ -7,3 +7,15 @@
 [submodule "nodekit-seq"]
 	path = nodekit-seq
 	url = https://github.com/AnomalyFi/nodekit-seq
+[submodule "relayer"]
+	path = relayer
+	url = https://github.com/cosmos/relayer/tree/main
+[submodule "noble"]
+	path = noble
+	url = https://github.com/noble-assets/noble
+[submodule "centralized-sequencer"]
+	path = centralized-sequencer
+	url = https://github.com/rollkit/centralized-sequencer 
+[submodule "go-sequencer"]
+	path = go-sequencer
+	url = https://github.com/AnomalyFi/go-sequencing 
