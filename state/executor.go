@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/hex"
+
+	// "encoding/hex"
 	"errors"
+	"flag"
 	"fmt"
-	"strings"
+
+	// "strings"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -21,10 +24,11 @@ import (
 	"github.com/rollkit/rollkit/types"
 	abciconv "github.com/rollkit/rollkit/types/abci"
 
-	conf "github.com/AnomalyFi/nodekit-relay/config"
-	relay "github.com/AnomalyFi/nodekit-relay/rpc"
-	trpc "github.com/AnomalyFi/seq-sdk/client"
-	info "github.com/AnomalyFi/seq-sdk/types"
+	central "github.com/AnomalyFi/centralized-sequencer/sequencing"
+	// pb "github.com/AnomalyFi/go-sequencing/types/pb/sequencing"
+	"github.com/AnomalyFi/go-sequencing"
+	// trpc "github.com/AnomalyFi/seq-sdk/client"
+	// info "github.com/AnomalyFi/seq-sdk/types"
 )
 
 // ErrEmptyValSetGenerated is returned when applying the validator changes would result in empty set.
@@ -34,28 +38,46 @@ var ErrEmptyValSetGenerated = errors.New("applying the validator changes would r
 var ErrAddingValidatorToBased = errors.New("cannot add validators to empty validator set")
 
 // NodeKit Vars
-var chainID = "opstack deployment seq chain id"
-var uri = "opstack deployment seq uri"
+var chainID = "hCTcJQm6811V9Suj6XomjXEcszEPLpG3nD4dRWUWUQHgZRWbJ"
+var uri = "http://54.175.18.95:9650/ext/bc/hCTcJQm6811V9Suj6XomjXEcszEPLpG3nD4dRWUWUQHgZRWbJ"
 var rollupChainID = uint64(45200)
 var rollupNamespace = make([]byte, 8)
+var nextBatch *sequencing.Batch
+var lastBatch *sequencing.Batch
+var (
+	host          string
+	port          string
+	listenAll     bool
+	batchTime     time.Duration
+	da_address    string
+	da_namespace  string
+	da_auth_token string
+)
+
+const (
+	defaultHost      = "localhost"
+	defaultPort      = "50051"
+	defaultBatchTime = time.Duration(2 * time.Second)
+	defaultDA        = "http://localhost:25568"
+)
 
 // NodeKit Client 
-type Client struct {
-	client *trpc.JSONRPCClient
-	//add log from import
-}
+// type Client struct {
+// 	client *trpc.JSONRPCClient
+// 	//add log from import
+// }
 
-func NewClient(url string, id string) *Client {
-	if !strings.HasSuffix(url, "/") {
-		url += "/"
-	}
+// func NewClient(url string, id string) *Client {
+// 	if !strings.HasSuffix(url, "/") {
+// 		url += "/"
+// 	}
 
-	cli := trpc.NewJSONRPCClient(url, 1337, id)
+// 	cli := trpc.NewJSONRPCClient(url, 1337, id)
 
-	return &Client{
-		client: cli,
-	}
-}
+// 	return &Client{
+// 		client: cli,
+// 	}
+// }
 
 // BlockExecutor creates and applies blocks and maintains state.
 type BlockExecutor struct {
@@ -125,6 +147,14 @@ func (e *BlockExecutor) InitChain(genesis *cmtypes.GenesisDoc) (*abci.ResponseIn
 
 // CreateBlock reaps transactions from mempool and builds a block.
 func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, lastExtendedCommit abci.ExtendedCommitInfo, lastHeaderHash types.Hash, state types.State) (*types.Block, error) {
+	flag.StringVar(&host, "host", defaultHost, "centralized sequencer host")
+	flag.StringVar(&port, "port", defaultPort, "centralized sequencer port")
+	flag.BoolVar(&listenAll, "listen-all", false, "listen on all network interfaces (0.0.0.0) instead of just localhost")
+	flag.DurationVar(&batchTime, "batch-time", defaultBatchTime, "time in seconds to wait before generating a new batch")
+	flag.StringVar(&da_address, "da_address", defaultDA, "DA address")
+	flag.StringVar(&da_namespace, "da_namespace", "", "DA namespace where the sequencer submits transactions")
+	flag.StringVar(&da_auth_token, "da_auth_token", "", "auth token for the DA")
+	ctx := context.Background()
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	emptyMaxBytes := maxBytes == -1
 	if emptyMaxBytes {
@@ -137,28 +167,50 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 	maxGas := state.ConsensusParams.Block.MaxGas
 	mempoolTxs := e.mempool.ReapMaxBytesMaxGas(maxBytes, maxGas)
 
-	client := NewClient(uri, chainID)
+	seq := central.NewSEQClient(uri, chainID)
+	cli, err := central.NewSequencer(da_address, da_auth_token, da_namespace, batchTime, seq)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating sequencer: %v\n", err)
+	}
 	binary.LittleEndian.PutUint64(rollupNamespace, rollupChainID)
-
 	// loop through mempoolTxs and submit txs to SEQ
+	// submit rollup returns only error type so we do this loop to simply make sure txs from mpool are submitted to SEQ
 	for _,tx := range mempoolTxs {
-		_,err := client.client.SubmitTx(context.Background(), chainID, 1337, rollupNamespace, tx)
+		// submits mempool transaction(s) to the sequencer
+		err := cli.SubmitRollupTransaction(ctx, rollupNamespace, tx)
 		if err != nil {
-			fmt.Printf("Error submitting txs: %v\n", err)
+			return nil, fmt.Errorf("Error submitting rollup transactions to sequencer: %v\n", err)
 		}
 	}
-	hexNamespace := hex.EncodeToString(rollupNamespace)
-	// height from submitted block on SEQ
-	blockHeight := uint64(0)
-	// use height above and encoded rollup string to get tx(s) by namespace
-	seqTxs, err := client.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
-	if err != nil {
-		fmt.Printf("Error getting txs: %v\n", err)
+	// now that we know tx(s) were submitted to SEQ, we include submitted tx(s) into lastBatch.Transaction
+	// height and ns you input manually
+	lastBatch = &sequencing.Batch {
+		Transactions: mempoolTxs.ToSliceOfBytes(),
+		Height: uint64(0),
+		Namespace: string(rollupNamespace),
 	}
-    // converts tx(s) from SEQ to rollkit txs
-	rollkitTxs := fromSEQTransactions(seqTxs.Txs)
-    // calls nodekit relayer to submit and retrieve seq blocks to and from DA layer
-	e.RelayToDA(context.TODO())
+	// we call GetNextBatch so that we get the blocks from height to the time we made request
+	// and get txs by namespace.
+	// this gets included into a new batch(nextBatch)
+	nextBatch, err = cli.GetNextBatch(ctx, lastBatch)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting next batch of rollup transactions: %v\n", err)
+	}
+	// verify the batch we just retrieved
+	isValid, err := cli.VerifyBatch(ctx, nextBatch)
+	if err != nil {
+		return nil, fmt.Errorf("Error verifying batch: %v\n", err)
+	}
+	if !isValid {
+		return nil, fmt.Errorf("Batch verification failed") 
+	}
+	// convert nextBatch.Transactions to types.Txs
+	rollkitTxs := toTypesTxs(nextBatch.Transactions)
+	// listens for SEQ blocks and submits/retrieves from DA layer
+	relayDA := cli.RelayToDA(ctx)
+	if relayDA != nil {
+    	fmt.Printf("Error relaying to DA: %v\n", relayDA)
+	}
 	block := &types.Block{
 		SignedHeader: types.SignedHeader{
 			Header: types.Header{
@@ -194,7 +246,7 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 		context.TODO(),
 		&abci.RequestPrepareProposal{
 			MaxTxBytes:         maxBytes,
-			Txs:                seqTxsToBytes(seqTxs.Txs),
+			Txs:               	rollkitTxs.ToSliceOfBytes(),
 			LocalLastCommit:    lastExtendedCommit,
 			Misbehavior:        []abci.Misbehavior{},
 			Height:             int64(block.Height()),
@@ -225,43 +277,6 @@ func (e *BlockExecutor) CreateBlock(height uint64, lastCommit *types.Commit, las
 	block.SignedHeader.LastHeaderHash = lastHeaderHash
 
 	return block, nil
-}
-
-func (e *BlockExecutor) RelayToDA(ctx context.Context) error {
-	//setup relayer
-	RPC := "127.0.0.1:12510"
-	relay_uri := "http://"+RPC
-	file := conf.SeqJsonRPCConfig {
-		URI: uri,
-		NetworkID: 1337,
-		ChainID: chainID,
-	}
-
-	cli, err := relay.NewJSONRPCClient(relay_uri, file)
-	if err != nil {
-		return err
-	}
-	stable, err := cli.GetStableSeqHeight(context.Background())
-	if err != nil {
-		return err
-	}
-	e.logger.Info("Returning Stable Seq Height ", "height", stable)
-
-	blockHeight := uint64(0)
-	daBlock, err := cli.GetSeqBlock(context.Background(), blockHeight)
-	if err != nil {
-		return err
-	}
-	e.logger.Info("Returning DA SEQ Block", "PoB", daBlock)
-
-	name, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("opstack deployment pprimary chain id"), blockHeight)
-	if err != nil {
-		return err
-	}
-	e.logger.Info("Returning DA SEQ Namespaced Block", "PoB", name)
-
-
-	return nil
 }
 
 // ProcessProposal calls the corresponding ABCI method on the app.
@@ -588,28 +603,18 @@ func toRollkitTxs(txs cmtypes.Txs) types.Txs {
 	return rollkitTxs
 }
 
+func toTypesTxs(txs [][]byte) types.Txs {
+	rollkitTxs := make(types.Txs, len(txs))
+	for i := range txs {
+		rollkitTxs[i] = []byte(txs[i])
+	}
+	return rollkitTxs
+}
+
 func fromRollkitTxs(rollkitTxs types.Txs) cmtypes.Txs {
 	txs := make(cmtypes.Txs, len(rollkitTxs))
 	for i := range rollkitTxs {
 		txs[i] = []byte(rollkitTxs[i])
-	}
-	return txs
-}
-
-// Convert SEQTransactionResponse.Txs to a slice of byte slices
-func seqTxsToBytes(seqTxs []*info.SEQTransaction) [][]byte {
-	var txBytes [][]byte
-	for _, tx := range seqTxs {
-		txBytes = append(txBytes, tx.Transaction)
-	}
-	return txBytes
-}
-
-// from SEQ txs to rollkit txs
-func fromSEQTransactions(seqTxs []*info.SEQTransaction) types.Txs {
-	txs := make(types.Txs, len(seqTxs))
-	for i, seqTx := range seqTxs {
-		txs[i] = seqTx.Transaction
 	}
 	return txs
 }

@@ -3,8 +3,8 @@ package state
 import (
 	"context"
 	"crypto/rand"
-	"encoding/binary"
-	"encoding/hex"
+	// "encoding/binary"
+	// "encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -328,98 +328,99 @@ func TestUpdateStateConsensusParams(t *testing.T) {
 	assert.Equal(t, uint64(2), updatedState.ConsensusParams.Version.App)
 }
 
-func TestNodeKit(t *testing.T) {
-	// assert := assert.New(t)
-	require := require.New(t)
+// TODO: Test new logic in Create Block 
+// func TestNodeKit(t *testing.T) {
+// 	// assert := assert.New(t)
+// 	require := require.New(t)
 	
-	logger := log.TestingLogger()
+// 	logger := log.TestingLogger()
 	
-	app := &mocks.Application{}
-	app.On("CheckTx", mock.Anything, mock.Anything).Return(&abci.ResponseCheckTx{}, nil)
-	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(prepareProposalResponse)
-	app.On("ProcessProposal", mock.Anything, mock.Anything).Return(&abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}, nil)
-	fmt.Println("App On CheckTx")
-	client, err := proxy.NewLocalClientCreator(app).NewABCIClient()
-	fmt.Println("Created New Local Client")
-	require.NoError(err)
-	require.NotNil(client)
+// 	app := &mocks.Application{}
+// 	app.On("CheckTx", mock.Anything, mock.Anything).Return(&abci.ResponseCheckTx{}, nil)
+// 	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(prepareProposalResponse)
+// 	app.On("ProcessProposal", mock.Anything, mock.Anything).Return(&abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}, nil)
+// 	fmt.Println("App On CheckTx")
+// 	client, err := proxy.NewLocalClientCreator(app).NewABCIClient()
+// 	fmt.Println("Created New Local Client")
+// 	require.NoError(err)
+// 	require.NotNil(client)
 	
-	fmt.Println("Made NID")
-	mpool := mempool.NewCListMempool(cfg.DefaultMempoolConfig(), proxy.NewAppConnMempool(client, proxy.NopMetrics()), 0)
-	fmt.Println("Made a NewTxMempool")
-	executor := NewBlockExecutor([]byte("test address"), "test", mpool, proxy.NewAppConnConsensus(client, proxy.NopMetrics()), nil, 100, logger, NopMetrics(), types.GetRandomBytes(32))
-	fmt.Println("Made a New Block Executor")
+// 	fmt.Println("Made NID")
+// 	// mpool := mempool.NewCListMempool(cfg.DefaultMempoolConfig(), proxy.NewAppConnMempool(client, proxy.NopMetrics()), 0)
+// 	fmt.Println("Made a NewTxMempool")
+// 	// executor := NewBlockExecutor([]byte("test address"), "test", mpool, proxy.NewAppConnConsensus(client, proxy.NopMetrics()), nil, 100, logger, NopMetrics(), types.GetRandomBytes(32))
+// 	fmt.Println("Made a New Block Executor")
 	
-	state := types.State{}
+// 	state := types.State{}
 	
-	state.ConsensusParams.Block = &cmproto.BlockParams{}
-	state.ConsensusParams.Block.MaxBytes = 100
-	state.ConsensusParams.Block.MaxGas = 100000
+// 	state.ConsensusParams.Block = &cmproto.BlockParams{}
+// 	state.ConsensusParams.Block.MaxBytes = 100
+// 	state.ConsensusParams.Block.MaxGas = 100000
 
-	//SEQ test
-	chainID := "opstack deployment seq chain id"
-	uri := "opstack deployment seq uri"
-	rollupChainID := uint64(45200)
-	rollupNamespace := make([]byte, 8)
-	binary.LittleEndian.PutUint64(rollupNamespace, rollupChainID)
+// 	//SEQ test
+// 	chainID := "hCTcJQm6811V9Suj6XomjXEcszEPLpG3nD4dRWUWUQHgZRWbJ"
+// 	uri := "http://54.175.18.95:9650/ext/bc/hCTcJQm6811V9Suj6XomjXEcszEPLpG3nD4dRWUWUQHgZRWbJ"
+// 	rollupChainID := uint64(45200)
+// 	rollupNamespace := make([]byte, 8)
+// 	binary.LittleEndian.PutUint64(rollupNamespace, rollupChainID)
 
-	seq := NewClient(uri, chainID)
+// 	// seq := NewClient(uri, chainID)
 
-	// create mpool of tx(s)
-	mpoolTxs := []types.Tx{
-		[]byte{1, 2, 3, 4},
-		[]byte{5, 6, 7, 8},
-		[]byte{9, 10, 11, 12},
-		[]byte{13, 14, 15, 16},
-		[]byte{17, 18, 19, 20},
-		[]byte{21, 22, 23, 24},
-	}
-	// submit tx(s) from mpool
-	for _,tx := range mpoolTxs {
-		seq.client.SubmitTx(context.Background(), chainID, 1337, rollupNamespace, tx)
-	}
-	hexNamespace := hex.EncodeToString(rollupNamespace)
-	// IMPORTANT: first submit txs, then get height from submitted block on SEQ and input it below.
-	blockHeight := uint64(0) 
-	// IMPORTANT: make sure values in this file with SEQ are the same and match the values in executer.go to test the code. 
-	// gets transactions from submitted SEQ block height
-	blockTxs, err := seq.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
-	require.NoError(err)
-	fmt.Printf("blockTxs test: %v\n", blockTxs)
-	// Convert the transactions to the rollkit type(does this in executor.go but here it is printed to make sure it correctly displays tx format needed)
-	rollkitTxs := fromSEQTransactions(blockTxs.Txs)
-	fmt.Printf("rollkitTxs: %v\n", rollkitTxs)
-	// Check that the transactions in the block returned by CreateBlockmatch the transactions from the sequencer
-	block, err := executor.CreateBlock(1, &types.Commit{}, abci.ExtendedCommitInfo{}, []byte{}, state)
-	require.NoError(err)
-	require.NotNil(block)
-	// assert.Equal(t, rollkitTxs, block.Data.Txs)
-	assert.Equal(t, uint64(1), block.Height())
+// 	// create mpool of tx(s)
+// 	mpoolTxs := []types.Tx{
+// 		[]byte{1, 2, 3, 4},
+// 		[]byte{5, 6, 7, 8},
+// 		[]byte{9, 10, 11, 12},
+// 		[]byte{13, 14, 15, 16},
+// 		[]byte{17, 18, 19, 20},
+// 		[]byte{21, 22, 23, 24},
+// 	}
+// 	// submit tx(s) from mpool
+// 	for _,tx := range mpoolTxs {
+// 		seq.client.SubmitTx(context.Background(), chainID, 1337, rollupNamespace, tx)
+// 	}
+// 	hexNamespace := hex.EncodeToString(rollupNamespace)
+// 	// IMPORTANT: first submit txs, then get height from submitted block on SEQ and input it below.
+// 	blockHeight := uint64(271) 
+// 	// IMPORTANT: make sure values in this file with SEQ are the same and match the values in executer.go to test the code. 
+// 	// gets transactions from submitted SEQ block height
+// 	blockTxs, err := seq.client.GetBlockTransactionsByNamespace(context.Background(), blockHeight, hexNamespace)
+// 	require.NoError(err)
+// 	fmt.Printf("blockTxs test: %v\n", blockTxs)
+// 	// Convert the transactions to the rollkit type(does this in executor.go but here it is printed to make sure it correctly displays tx format needed)
+// 	rollkitTxs := fromSEQTransactions(blockTxs.Txs)
+// 	fmt.Printf("rollkitTxs: %v\n", rollkitTxs)
+// 	// Check that the transactions in the block returned by CreateBlockmatch the transactions from the sequencer
+// 	block, err := executor.CreateBlock(1, &types.Commit{}, abci.ExtendedCommitInfo{}, []byte{}, state)
+// 	require.NoError(err)
+// 	require.NotNil(block)
+// 	// assert.Equal(t, rollkitTxs, block.Data.Txs)
+// 	assert.Equal(t, uint64(1), block.Height())
 
-	// debugging
-	fmt.Printf("block: %v\n", block)
-	fmt.Printf("block height: %v\n", block.Height())
-	fmt.Printf("block TXS: %v\n", block.Data.Txs)
+// 	// debugging
+// 	fmt.Printf("block: %v\n", block)
+// 	fmt.Printf("block height: %v\n", block.Height())
+// 	fmt.Printf("block TXS: %v\n", block.Data.Txs)
 	
-	// debugging relayer funcs
-	// relay_uri := "http://127.0.0.1:12510"
+// 	debugging relayer funcs
+// 	relay_uri := "http://127.0.0.1:12510"
 
-	// file := conf.SeqJsonRPCConfig {
-	// 	URI: uri,
-	// 	NetworkID: 1337,
-	// 	ChainID: chainID,
-	// }
+// 	file := conf.SeqJsonRPCConfig {
+// 		URI: uri,
+// 		NetworkID: 1337,
+// 		ChainID: chainID,
+// 	}
 
-	// cli, err := relay.NewJSONRPCClient(relay_uri, file)
-	// require.NoError(err)
-	// fmt.Printf("da test cli : %v\n", cli)
-	// daBlock, err := cli.GetSeqBlock(context.Background(), blockHeight)
-	// require.NoError(err)
-	// fmt.Printf(" da test seq block: %v\n", daBlock)
-	// stable, err := cli.GetStableSeqHeight(context.Background())
-	// require.NoError(err)
-	// fmt.Printf("da test stable seq block: %v\n", stable)
-	// ns, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("opstack deployment seq chain id "), blockHeight)
-	// require.NoError(err)
-	// fmt.Printf("da test ns : %v\n", ns)	
-}
+// 	cli, err := relay.NewJSONRPCClient(relay_uri, file)
+// 	require.NoError(err)
+// 	fmt.Printf("da test cli : %v\n", cli)
+// 	daBlock, err := cli.GetSeqBlock(context.Background(), blockHeight)
+// 	require.NoError(err)
+// 	fmt.Printf(" da test seq block: %v\n", daBlock)
+// 	stable, err := cli.GetStableSeqHeight(context.Background())
+// 	require.NoError(err)
+// 	fmt.Printf("da test stable seq block: %v\n", stable)
+// 	ns, _, err := cli.GetNamespacedSeqBlock(context.Background(), []byte("opstack deployment seq chain id "), blockHeight)
+// 	require.NoError(err)
+// 	fmt.Printf("da test ns : %v\n", ns)	
+// }
