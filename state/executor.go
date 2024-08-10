@@ -61,24 +61,6 @@ const (
 	defaultDA        = "http://localhost:25568"
 )
 
-// NodeKit Client 
-// type Client struct {
-// 	client *trpc.JSONRPCClient
-// 	//add log from import
-// }
-
-// func NewClient(url string, id string) *Client {
-// 	if !strings.HasSuffix(url, "/") {
-// 		url += "/"
-// 	}
-
-// 	cli := trpc.NewJSONRPCClient(url, 1337, id)
-
-// 	return &Client{
-// 		client: cli,
-// 	}
-// }
-
 // BlockExecutor creates and applies blocks and maintains state.
 type BlockExecutor struct {
 	proposerAddress []byte

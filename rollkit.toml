@@ -1,0 +1,4 @@
+entrypoint = "/home/ubuntu/nk-rollkit/cmd/rollkit/main.go"
+
+[chain]
+  config_dir = "/home/ubuntu/.rollkit"

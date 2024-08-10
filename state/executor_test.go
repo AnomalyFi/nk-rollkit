@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	// "errors"
 
 	// "encoding/binary"
 	// "encoding/hex"
@@ -358,8 +359,8 @@ func TestNodeKit(t *testing.T) {
 
 	//SEQ test
 	// NodeKit Vars
-	var chainID_test = "hCTcJQm6811V9Suj6XomjXEcszEPLpG3nD4dRWUWUQHgZRWbJ"
-	var uri_test = "http://54.175.18.95:9650/ext/bc/hCTcJQm6811V9Suj6XomjXEcszEPLpG3nD4dRWUWUQHgZRWbJ"
+	var chainID_test = "Vtq4zbX2nxJSMGRFLUF9MZE1k5Ezie99qKbr9jKGzdCo8tHW6"
+	var uri_test = "http://18.205.239.227:9650/ext/bc/Vtq4zbX2nxJSMGRFLUF9MZE1k5Ezie99qKbr9jKGzdCo8tHW6"
 	var rollupChainID_test = uint64(45200)
 	var rollupNamespace_test = make([]byte, 8)
 	binary.LittleEndian.PutUint64(rollupNamespace_test, rollupChainID_test)
@@ -375,33 +376,67 @@ func TestNodeKit(t *testing.T) {
 		defaultHost_test      = "localhost"
 		defaultPort_test      = "50051"
 		defaultBatchTime_test = time.Duration(2 * time.Second)
-		defaultDA_test        = "http://localhost:25568"
+		defaultDA_test        = "http://localhost:7980"
 	)
 
 	seq := central.NewSEQClient(uri_test, chainID_test)
-	cli, err := central.NewSequencer(da_address_test, da_auth_token_test, da_namespace_test, batchTime_test, seq)
-	ctx := context.Background()
-	// create mempool txs
-	mpoolTxs := cmtypes.Txs{
-		cmtypes.Tx{1, 2, 3, 4},
-		cmtypes.Tx{5, 6, 7, 8},
-		cmtypes.Tx{9, 10, 11, 12},
-		cmtypes.Tx{13, 14, 15, 16},
-		cmtypes.Tx{17, 18, 19, 20},
-		cmtypes.Tx{21, 22, 23, 24},
+	if seq == nil {
+		fmt.Println("Failed to create SEQClient")
 	}
+	da_address_test = "http://localhost:7980"
+	da_namespace_test = ""
+	da_auth_token_test = ""
+	cli, err := central.NewSequencer(da_address_test, da_auth_token_test, da_namespace_test, batchTime_test, seq)
+	if err != nil {
+		fmt.Printf("Error initializing Sequencer: %v\n", err)
+		return 
+	}
+	if cli == nil {
+		fmt.Printf(" seq is nil after initialization %v\n", cli)
+		return
+	}
+	fmt.Println("Initialized Sequencer")
+	ctx := context.Background()
+	if ctx == nil {
+		fmt.Printf(" ctx is nil %v\n", ctx)
+		return
+	}
+	fmt.Println("Created context")
+	// create mempool txs
+	// mpoolTxs := cmtypes.Txs{
+	// 	cmtypes.Tx([]byte{1, 2, 3, 4}),
+    // 	cmtypes.Tx([]byte{5, 6, 7, 8}),
+    // 	cmtypes.Tx([]byte{9, 10, 11, 12}),
+    // 	cmtypes.Tx([]byte{13, 14, 15, 16}),
+    // 	cmtypes.Tx([]byte{17, 18, 19, 20}),
+    // 	cmtypes.Tx([]byte{21, 22, 23, 24}),
+	// }
+	mpoolTxs := types.Txs{
+		types.Tx{1, 2, 3, 4},
+		types.Tx{5, 6, 7, 8},
+		types.Tx{9, 10, 11, 12},
+		types.Tx{13, 14, 15, 16},
+		types.Tx{17, 18, 19, 20},
+		types.Tx{21, 22, 23, 24},
+	}
+	fmt.Println("Created mempool transactions", mpoolTxs)
+
 	for _,tx := range mpoolTxs {
 		// submits mempool transaction(s) to the sequencer
+		fmt.Println("rollup ns ", rollupNamespace_test)
+		fmt.Println("tx before submission ", tx)
 		err := cli.SubmitRollupTransaction(ctx, rollupNamespace_test, tx)
 		if err != nil {
 			return
 		}
+		fmt.Println("Submitted transaction")
 	}
 	lastBatch_test = &sequencing.Batch {
 		Transactions: mpoolTxs.ToSliceOfBytes(),
 		Height: uint64(0),
 		Namespace: string(rollupNamespace),
 	}
+	fmt.Printf("lastBatch %v\n", lastBatch_test)
 	nextBatch_test, err = cli.GetNextBatch(ctx, lastBatch_test)
 	if err != nil {
 		return
